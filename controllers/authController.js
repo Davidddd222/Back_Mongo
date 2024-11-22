@@ -3,40 +3,42 @@ import User from '../entities/user.entity.js'
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-export const userRegister= async(req, res)=>{
-    //desescruturar el body
-    const {firstName, 
-           lastName,
-           email,
-           password,
-           isAdmin
-          } = req.body
+export const userRegister = async (req, res) => {
+    // Desestructurar el body
+    const { firstName, lastName, email, password, isAdmin } = req.body;
 
-    //verificar si el usuario existe por email
-    const VUser = await User.findOne({email:req.body.email})
-    if (VUser){
-        res.status(400).json({
+    // Verificar si el usuario existe por email
+    const VUser = await User.findOne({ email: req.body.email });
+    if (VUser) {
+        return res.status(400).json({
             message: "El usuario ya existe"
-        })
-    }else {
+        });
+    } else {
+        // Encriptar el password del body
+        const sal = await bcrypt.genSalt(10);
+        const bcPassword = await bcrypt.hash(password, sal);
 
+        // Crear el nuevo usuario
+        const newUser = await User.create({
+            firstName,
+            lastName,
+            email,
+            password: bcPassword,
+            isAdmin,
+        });
 
-    //encriptar el password del body
-    const sal = await bcrypt.genSalt(10)
-    const bcPassword = await bcrypt.hash(password, sal)
+        const token = generarToken(newUser._id);
 
-    //crear el nuevo usuario
-    const newUser = await User.create({
-        firstName,
-        lastName,
-        email,
-        password : bcPassword,
-        isAdmin
-    })
-    res.status(201).json(newUser)
+        const userResponse = {
+            ...req.body,
+            id: newUser._id,
+            createdAt: newUser.createdAt,
+            token
+        };
+
+        return res.status(201).json(userResponse);
     }
-//export default authController;
-}
+};
 
 export const userLogin =  async (req, res) => {
     const {email, password} = req.body
@@ -44,18 +46,18 @@ export const userLogin =  async (req, res) => {
     const user = await User.findOne({email})
     if (user ) {
         //hash(request, mongo)
-    if ( await bcrypt.compare(password, user.password)){
-        res.status(200).json ({
-            id : user.id,
-            name: user.firstName,
-            token: generarToken(user.id)
-        })
-        
-    } else {
-        res.status(404).json({
-            "message": "Credenciales invalidas"
-        })
-    }
+        if ( await bcrypt.compare(password, user.password)){
+            res.status(200).json ({
+                id : user.id,
+                name: user.firstName,
+                token: generarToken(user.id)
+            })
+            
+        } else {
+            res.status(404).json({
+                "message": "Credenciales invalidas"
+            })
+        }
 
     }  else {
         res.status(404).json({
@@ -64,8 +66,7 @@ export const userLogin =  async (req, res) => {
     
 
     }
-    res.json(user)   
-
+    
 }
 
 const generarToken = (id) => {
