@@ -1,10 +1,7 @@
 import mongoose from 'mongoose'
 import User from '../entities/user.entity.js'
 import bcrypt from 'bcrypt';
-
-export const userLogin=(req, res)=>{
-    res.send("Logueo de usuarios")
-}
+import jwt from 'jsonwebtoken';
 
 export const userRegister= async(req, res)=>{
     //desescruturar el body
@@ -38,9 +35,41 @@ export const userRegister= async(req, res)=>{
     })
     res.status(201).json(newUser)
     }
+//export default authController;
+}
+
+export const userLogin =  async (req, res) => {
+    const {email, password} = req.body
+    //encontrar el usuario por email
+    const user = await User.findOne({email})
+    if (user ) {
+        //hash(request, mongo)
+    if ( await bcrypt.compare(password, user.password)){
+        res.status(200).json ({
+            id : user.id,
+            name: user.firstName,
+            token: generarToken(user.id)
+        })
+        
+    } else {
+        res.status(404).json({
+            "message": "Credenciales invalidas"
+        })
+    }
+
+    }  else {
+        res.status(404).json({
+            "message": "El usuario no existe"
+        })
+    
+
+    }
+    res.json(user)   
 
 }
 
-
-//export default authController;
-
+const generarToken = (id) => {
+    return jwt.sign({id}, 
+                    process.env.JWT_SECRET,
+                    {expiresIn: "30d"})
+}
